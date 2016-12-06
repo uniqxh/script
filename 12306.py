@@ -164,8 +164,8 @@ def submit():
     print '验证码校验成功'
     print '正在登陆...'
     data = {}
-    data['loginUserDTO.user_name'] = '525799145@qq.com'
-    data['userDTO.password'] = 'xinhua192245151'
+    data['loginUserDTO.user_name'] = 'XXX@qq.com'
+    data['userDTO.password'] = '***'
     data['randCode'] = code
     res = opener.open(loginurl, urllib.urlencode(data)).read()
     jd = json.loads(res)
