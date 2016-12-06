@@ -72,8 +72,8 @@ def confirm():
     co = {
        'cancel_flag': 2,
        'bed_level_order_num': '000000000000000000000000000000',
-       'passengerTicketStr': 'O,0,1,周新华,1,421023199112232039,18575581356,N',
-       'oldPassengerStr': '周新华,1,421023199112232039,1_',
+       'passengerTicketStr': 'O,0,1,XXX,1,XXX,XXX,N',
+       'oldPassengerStr': 'XXX,1,XXX,1_',
        'tour_flag': 'dc',
        'randCode': code,
        'REPEAT_SUBMIT_TOKEN': token
@@ -81,8 +81,8 @@ def confirm():
     opener.open(checkorderurl, urllib.urlencode(co))
     print '正在确认订单...'
     data = {
-        'passengerTicketStr': 'O,0,1,周新华,1,421023199112232039,18575581356,N',
-        'oldPassengerStr': '周新华,1,421023199112232039,1_',
+        'passengerTicketStr': 'O,0,1,XXX,1,XXX,XXX,N',
+        'oldPassengerStr': 'XXX,1,XXX,1_',
         'purpose_codes': info['purpose_codes'],
         'key_check_isChange': info['key_check_isChange'],
         'leftTicketStr': info['leftTicketStr'],
