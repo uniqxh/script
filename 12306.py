@@ -6,7 +6,7 @@ import Tkinter as tk
 from PIL import Image,ImageTk
 from Tkinter import BOTH, END, LEFT
 import ssl
-import json,re
+import json,re,uniout
 
 ssl._create_default_https_context = ssl._create_unverified_context
 
@@ -30,14 +30,20 @@ checkorderurl = 'https://kyfw.12306.cn/otn/confirmPassenger/checkOrderInfo'
 confirmurl = 'https://kyfw.12306.cn/otn/confirmPassenger/confirmSingleForQueue'
 
 def query():
-    res = opener.open('https://kyfw.12306.cn/otn/leftTicket/queryX?leftTicketDTO.train_date=2016-12-30&leftTicketDTO.from_station=SZQ&leftTicketDTO.to_station=WHN&purpose_codes=ADULT')
+    print '正在查询列车信息...'
+    res = opener.open('https://kyfw.12306.cn/otn/leftTicket/queryX?leftTicketDTO.train_date=2017-01-04&leftTicketDTO.from_station=SZQ&leftTicketDTO.to_station=WHN&purpose_codes=ADULT')
     jsonData = json.loads(res.read())
+    print '查询成功'
     submitOrder(jsonData['data'][0]['secretStr'])
 
 def submitOrder(ss):
+    print '正在提交订单...'
     url = 'https://kyfw.12306.cn/otn/leftTicket/submitOrderRequest'
     cm = 'secretStr=' + ss + '&train_date=2016-12-29&tour_flag=dc&purpose=ADULT&query_from_station_name=%E6%B7%B1%E5%9C%B3&query_to_station_name=%E6%AD%A6%E6%B1%89&undefined'
-    print opener.open(url, cm).read()
+    jd = json.loads(opener.open(url, cm).read())
+    if jd['messages'] != []:
+        print jd['messages'][0]
+        return
     initDc()
 
 gp = re.compile(r'globalRepeatSubmitToken = \'([^\']+)')
@@ -73,7 +79,7 @@ def confirm():
        'REPEAT_SUBMIT_TOKEN': token
     }
     opener.open(checkorderurl, urllib.urlencode(co))
-    print '正在提交订单...'
+    print '正在确认订单...'
     data = {
         'passengerTicketStr': 'O,0,1,周新华,1,421023199112232039,18575581356,N',
         'oldPassengerStr': '周新华,1,421023199112232039,1_',
@@ -155,14 +161,24 @@ def submit():
         print '验证码错误'
         refreshCode(url, submit)
         return
-    print '登陆成功'
+    print '验证码校验成功'
+    print '正在登陆...'
     data = {}
     data['loginUserDTO.user_name'] = '525799145@qq.com'
     data['userDTO.password'] = 'xinhua192245151'
     data['randCode'] = code
-    f = opener.open(loginurl, urllib.urlencode(data))
-    #print f.read()
+    res = opener.open(loginurl, urllib.urlencode(data)).read()
+    jd = json.loads(res)
+    if jd['data'] == {}:
+        print jd['messages'][0]
+        refreshCode(url, submit)
+        return
+    if jd['data']['loginCheck'] != 'Y':
+        print jd['data']['otherMsg'] + ', 请重新登陆'
+        refreshCode(url, submit)
+        return
     opener.open('https://kyfw.12306.cn/otn/login/init')
+    print '登陆成功'
     query()
 
 l.bind('<Button-1>', motion)
