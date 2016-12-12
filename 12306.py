@@ -12,8 +12,6 @@ reload(sys)
 sys.setdefaultencoding( "utf-8" )
 
 class config:
-    user = ''
-    pwd  = ''
     def __init__(self, f):
         cf = ConfigParser.ConfigParser()
         if cf.read(f) == []:
@@ -21,6 +19,9 @@ class config:
         try:
             self.user = cf.get('info', 'user')
             self.pwd  = cf.get('info', 'pwd')
+            self.station = cf.get('info', 'station')
+            self.passenger = cf.get('info', 'passenger')
+            print self.station, self.passenger
         except:
             raise Exception('user/pwd未配置')
 #check config file
@@ -84,6 +85,7 @@ class _12306():
             return
         res = self.opener.open(self.host + 'confirmPassenger/getPassengerDTOs').read()
         self.psg = json.loads(res)['data']['normal_passengers']
+        getpassengerstr()
         self.initDc()
     
     gp = re.compile(r'globalRepeatSubmitToken = \'([^\']+)')
@@ -95,6 +97,21 @@ class _12306():
         self.token = self.gp.search(html).group(1)
         self.info = json.loads(self.tp.search(html).group(1).replace("'", '"'))
         self.refreshCode(self.purl, self.confirm)
+
+    passengerstr = ''
+    oldpassengerstr = ''
+    def getpassengerstr(self):
+        passengerstr = ''
+        oldpassengerstr = ''
+        pg = cfg.passenger.split(';')
+        for i in self.psg:
+            if pg.count(i['passenger_name']) == 0:
+                continue
+            passengerstr += 'O,0,1,'+ i['passenger_name'] +',1,'+ i['passenger_id_no'] +','+ i['mobile_no'] +',N_'
+            oldpassengerstr += i['passenger_name'] + ',1,'+ i['passenger_id_no'] +',1_'
+        l = len(passengerstr)
+        if l == 0:
+            raise Exception('乘车人不存在，请在官网添加！')
     
     def confirm(self):
         self.hide()
@@ -108,14 +125,11 @@ class _12306():
             self.refreshCode(self.purl, self.confirm)
             return
         print '验证码校验成功'
-        pg = self.psg[0]
-        tstr = 'O,0,1,'+ pg['passenger_name'] +',1,'+ pg['passenger_id_no'] +','+ pg['mobile_no'] +',N'
-        ostr = pg['passenger_name'] + ',1,'+ pg['passenger_id_no'] +',1_'
         co = {
            'cancel_flag': 2,
            'bed_level_order_num': '000000000000000000000000000000',
-           'passengerTicketStr': tstr,
-           'oldPassengerStr': ostr,
+           'passengerTicketStr': self.passengerstr,
+           'oldPassengerStr': self.oldpassengerstr,
            'tour_flag': 'dc',
            'randCode': code,
            'REPEAT_SUBMIT_TOKEN': self.token
@@ -123,8 +137,8 @@ class _12306():
         self.opener.open(self.checkorderurl, urllib.urlencode(co))
         print '正在确认订单...'
         data = {
-            'passengerTicketStr': tstr,
-            'oldPassengerStr': ostr,
+            'passengerTicketStr': self.passengerstr,
+            'oldPassengerStr': self.oldpassengerstr,
             'purpose_codes': self.info['purpose_codes'],
             'key_check_isChange': self.info['key_check_isChange'],
             'leftTicketStr': self.info['leftTicketStr'],
