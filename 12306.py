@@ -6,13 +6,13 @@ import Tkinter as tk
 from PIL import Image,ImageTk
 from Tkinter import BOTH, END, LEFT
 import ssl
-import json,re,uniout,ConfigParser
-import sys
+import json,re,uniout,ConfigParser,sys,threading
 reload(sys)
 sys.setdefaultencoding( "utf-8" )
 
 class config:
     def __init__(self, f):
+        print '读取配置文件...'
         cf = ConfigParser.ConfigParser()
         if cf.read(f) == []:
             raise Exception('config文件不存在')
@@ -24,6 +24,7 @@ class config:
             print self.station, self.passenger
         except:
             raise Exception('user/pwd未配置')
+        print '读取成功'
 #check config file
 try:
     cfg = config('config')
@@ -40,42 +41,49 @@ class _12306():
         cookies = urllib2.HTTPCookieProcessor()
         #httpHandler = urllib2.HTTPHandler(debuglevel=1)
         #httpsHandler = urllib2.HTTPSHandler(debuglevel=1)
-        self. opener = urllib2.build_opener(cookies)
+        self.opener = urllib2.build_opener(cookies)
         urllib2.install_opener(self.opener)
-        #init page 
+        #init page
         self.opener.open(self.host + 'login/init')
-        
+
         self.w = tk.Tk()
         self.l = tk.Label(self.w, bg='brown')
         self.l.pack(padx=5, pady=5)
-    
+
         self.l.bind('<Button-1>', self.motion)
-    
+
         self.b = tk.Button(self.w, text='提交')
         self.b.pack()
-        
+
         self.lIm = Image.open('./label.png')
         self.lImg = ImageTk.PhotoImage(self.lIm)
-    
+
         self.refreshCode(self.url, self.submit)
-    
+
         self.w.mainloop()
-    
+
     url = 'https://kyfw.12306.cn/otn/passcodeNew/getPassCodeNew?module=login&rand=sjrand'
     purl = 'https://kyfw.12306.cn/otn/passcodeNew/getPassCodeNew?module=passenger&rand=randp'
     checkurl = 'https://kyfw.12306.cn/otn/passcodeNew/checkRandCodeAnsyn'
     loginurl = 'https://kyfw.12306.cn/otn/login/loginAysnSuggest'
     checkorderurl = 'https://kyfw.12306.cn/otn/confirmPassenger/checkOrderInfo'
     confirmurl = 'https://kyfw.12306.cn/otn/confirmPassenger/confirmSingleForQueue'
-    
+
     def query(self):
         print '正在查询列车信息...'
-        res = self.opener.open(self.host + 'leftTicket/query?leftTicketDTO.train_date=2017-01-04&leftTicketDTO.from_station=SZQ&leftTicketDTO.to_station=WHN&purpose_codes=ADULT')
+        res = self.opener.open(self.host + 'leftTicket/queryX?leftTicketDTO.train_date=2017-01-04&leftTicketDTO.from_station=SZQ&leftTicketDTO.to_station=WHN&purpose_codes=ADULT')
         jsonData = json.loads(res.read())
-        print '查询成功'
-        self.submitOrder(jsonData['data'][0]['secretStr'])
-    
-    def submitOrder(self, ss):
+        for i in jsonData['data']:
+            s = i['queryLeftNewDTO']
+            if s['controlled_train_flag'] != '0':
+                continue
+            if  cfg.station.count(s['station_train_code']) == 0:
+                continue
+            print '正在预定%s车次...'%(s['station_train_code'])
+            t = threading.Thread(target=self.submitOrder, args=(i['secretStr'],))
+            t.start()
+
+    def submitOrder(self,  ss):
         print '正在提交订单...'
         action = 'leftTicket/submitOrderRequest'
         cm = 'secretStr=' + ss + '&train_date=2016-12-29&tour_flag=dc&purpose=ADULT&query_from_station_name=%E6%B7%B1%E5%9C%B3&query_to_station_name=%E6%AD%A6%E6%B1%89&undefined'
@@ -85,9 +93,9 @@ class _12306():
             return
         res = self.opener.open(self.host + 'confirmPassenger/getPassengerDTOs').read()
         self.psg = json.loads(res)['data']['normal_passengers']
-        getpassengerstr()
+        self.getpassengerstr()
         self.initDc()
-    
+
     gp = re.compile(r'globalRepeatSubmitToken = \'([^\']+)')
     tp = re.compile(r'ticketInfoForPassengerForm=([^;]+)')
     token = ''
@@ -100,7 +108,7 @@ class _12306():
 
     passengerstr = ''
     oldpassengerstr = ''
-    def getpassengerstr(self):
+    def getpassengerstr(self) :
         passengerstr = ''
         oldpassengerstr = ''
         pg = cfg.passenger.split(';')
@@ -112,7 +120,7 @@ class _12306():
         l = len(passengerstr)
         if l == 0:
             raise Exception('乘车人不存在，请在官网添加！')
-    
+
     def confirm(self):
         self.hide()
         code = self.getCode()
@@ -149,18 +157,19 @@ class _12306():
             'REPEAT_SUBMIT_TOKEN': self.token,
             'randCode': code
         }
+        print data
         res = self.opener.open(self.confirmurl, urllib.urlencode(data));
         print res.read()
         print '订单提交成功'
         exit()
-    
+
     def hide(self):
         self.w.withdraw()
-    
+
     def show(self):
         self.w.update()
         self.w.deiconify()
-    
+
     lists = []
     def clear(self):
         if len(self.lists) == 0:
@@ -168,7 +177,7 @@ class _12306():
         for i in self.lists:
             i.destroy()
         del self.lists[:]
-    
+
     def refreshCode(self, u, f):
         self.b.config(command=f)
         self.show()
@@ -180,7 +189,7 @@ class _12306():
         self.l.image = tkImg
         self.clear()
         print '请输入验证码...'
-    
+
     def getCode(self):
         res = ''
         for i in self.lists:
@@ -189,11 +198,11 @@ class _12306():
         if res == '':
             return ''
         return res[0:len(res) - 1]
-    
+
     def destroy(self, e):
         self.lists.remove(e.widget)
         e.widget.destroy()
-    
+
     def motion(self, e):
         if e.y < 40:
             return
@@ -232,7 +241,7 @@ class _12306():
         self.opener.open('https://kyfw.12306.cn/otn/login/init')
         print '登陆成功'
         self.query()
-    
+
 try:
     _12306()
 except:
