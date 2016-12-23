@@ -21,7 +21,9 @@ class config:
             self.pwd  = cf.get('info', 'pwd')
             self.station = cf.get('info', 'station')
             self.passenger = cf.get('info', 'passenger')
-            print self.station, self.passenger
+            self.date = cf.get('info', 'date')
+            self.from_station = cf.get('info', 'from_station')
+            self.to_station = cf.get('info', 'to_station')
         except:
             raise Exception('user/pwd未配置')
         print '读取成功'
@@ -71,7 +73,7 @@ class _12306():
 
     def query(self):
         print '正在查询列车信息...'
-        res = self.opener.open(self.host + 'leftTicket/queryX?leftTicketDTO.train_date=2017-01-04&leftTicketDTO.from_station=SZQ&leftTicketDTO.to_station=WHN&purpose_codes=ADULT')
+        res = self.opener.open(self.host + 'leftTicket/queryX?leftTicketDTO.train_date='+ self.date +'&leftTicketDTO.from_station='+ self.from_station +'&leftTicketDTO.to_station='+ self.to_station +'&purpose_codes=ADULT')
         jsonData = json.loads(res.read())
         for i in jsonData['data']:
             s = i['queryLeftNewDTO']
@@ -104,7 +106,8 @@ class _12306():
         html = self.opener.open(self.host + 'confirmPassenger/initDc').read()
         self.token = self.gp.search(html).group(1)
         self.info = json.loads(self.tp.search(html).group(1).replace("'", '"'))
-        self.refreshCode(self.purl, self.confirm)
+        #self.refreshCode(self.purl, self.confirm)
+        self.confirm()
 
     passengerstr = ''
     oldpassengerstr = ''
@@ -123,23 +126,23 @@ class _12306():
 
     def confirm(self):
         self.hide()
-        code = self.getCode()
-        if code == '':
-            return
-        co = {'randCode': code, 'rand': 'randp'}
-        jd = json.loads(self.opener.open(self.checkurl, urllib.urlencode(co)).read())
-        if jd['data']['msg'] != 'TRUE':
-            print '验证码错误'
-            self.refreshCode(self.purl, self.confirm)
-            return
-        print '验证码校验成功'
+      #  code = self.getCode()
+      #  if code == '':
+      #      return
+      #  co = {'randCode': code, 'rand': 'randp'}
+      #  jd = json.loads(self.opener.open(self.checkurl, urllib.urlencode(co)).read())
+      #  if jd['data']['msg'] != 'TRUE':
+      #      print '验证码错误'
+      #      self.refreshCode(self.purl, self.confirm)
+      #      return
+      #  print '验证码校验成功'
         co = {
            'cancel_flag': 2,
            'bed_level_order_num': '000000000000000000000000000000',
            'passengerTicketStr': self.passengerstr,
            'oldPassengerStr': self.oldpassengerstr,
            'tour_flag': 'dc',
-           'randCode': code,
+           'randCode': '',
            'REPEAT_SUBMIT_TOKEN': self.token
         }
         self.opener.open(self.checkorderurl, urllib.urlencode(co))
