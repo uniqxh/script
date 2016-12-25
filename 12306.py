@@ -6,7 +6,7 @@ import Tkinter as tk
 from PIL import Image,ImageTk
 from Tkinter import BOTH, END, LEFT
 import ssl
-import json,re,uniout,ConfigParser,sys,threading
+import json,re,uniout,ConfigParser,sys,threading,time
 reload(sys)
 sys.setdefaultencoding( "utf-8" )
 
@@ -72,30 +72,42 @@ class _12306():
     confirmurl = 'https://kyfw.12306.cn/otn/confirmPassenger/confirmSingleForQueue'
 
     def query(self):
-        print '正在查询列车信息...'
-        res = self.opener.open(self.host + 'leftTicket/queryX?leftTicketDTO.train_date='+ self.date +'&leftTicketDTO.from_station='+ self.from_station +'&leftTicketDTO.to_station='+ self.to_station +'&purpose_codes=ADULT')
-        jsonData = json.loads(res.read())
-        for i in jsonData['data']:
-            s = i['queryLeftNewDTO']
-            if s['controlled_train_flag'] != '0':
+        flag = True
+        while True:
+            print '正在查询列车信息...'
+            try:
+                res = self.opener.open(self.host + 'leftTicket/queryA?leftTicketDTO.train_date='+ cfg.date +'&leftTicketDTO.from_station='+ cfg.from_station +'&leftTicketDTO.to_station='+ cfg.to_station +'&purpose_codes=ADULT')
+                jsonData = json.loads(res.read())
+                ls= []
+                for i in jsonData['data']:
+                    s = i['queryLeftNewDTO']
+                    if s['controlled_train_flag'] != '0':
+                        continue
+                    if  cfg.station.count(s['station_train_code']) == 0:
+                        continue
+                    if i['secretStr'] == '':
+                        continue
+                    ls.append({ss:i['secretStr'], code:s['station_train_code']})
+                print ls
+                if ls == []:
+                    flag = False
+                while flag:
+                    for j in ls:
+                        print '正在预定%s车次...'%(j['code'])
+                        t = threading.Thread(target=self.submitOrder, args=(j['ss'],))
+                        t.start()
+            except:
                 continue
-            if  cfg.station.count(s['station_train_code']) == 0:
-                continue
-            print '正在预定%s车次...'%(s['station_train_code'])
-            t = threading.Thread(target=self.submitOrder, args=(i['secretStr'],))
-            t.start()
 
     def submitOrder(self,  ss):
         print '正在提交订单...'
+        print ss
         action = 'leftTicket/submitOrderRequest'
-        cm = 'secretStr=' + ss + '&train_date=2016-12-29&tour_flag=dc&purpose=ADULT&query_from_station_name=%E6%B7%B1%E5%9C%B3&query_to_station_name=%E6%AD%A6%E6%B1%89&undefined'
+        cm = 'secretStr=' + ss + '&train_date='+ cfg.date +'&tour_flag=dc&purpose=ADULT&query_from_station_name=%E6%B7%B1%E5%9C%B3&query_to_station_name=%E9%A9%BB%E9%A9%AC%E5%BA%97%E8%A5%BF&undefined'
         jd = json.loads(self.opener.open(self.host + action, cm).read())
         if jd['messages'] != []:
             print jd['messages'][0]
-            return
-        res = self.opener.open(self.host + 'confirmPassenger/getPassengerDTOs').read()
-        self.psg = json.loads(res)['data']['normal_passengers']
-        self.getpassengerstr()
+            self.submitOrder(ss)
         self.initDc()
 
     gp = re.compile(r'globalRepeatSubmitToken = \'([^\']+)')
@@ -104,10 +116,15 @@ class _12306():
     info = {}
     def initDc(self):
         html = self.opener.open(self.host + 'confirmPassenger/initDc').read()
-        self.token = self.gp.search(html).group(1)
-        self.info = json.loads(self.tp.search(html).group(1).replace("'", '"'))
-        #self.refreshCode(self.purl, self.confirm)
-        self.confirm()
+        try:
+            self.token = self.gp.search(html).group(1)
+            self.info = json.loads(self.tp.search(html).group(1).replace("'", '"'))
+            #self.refreshCode(self.purl, self.confirm)
+            while True:
+                self.confirm()
+        except:
+            print '系统繁忙'
+            self.initDc()
 
     passengerstr = ''
     oldpassengerstr = ''
@@ -125,7 +142,7 @@ class _12306():
             raise Exception('乘车人不存在，请在官网添加！')
 
     def confirm(self):
-        self.hide()
+      #  self.hide()
       #  code = self.getCode()
       #  if code == '':
       #      return
@@ -154,17 +171,17 @@ class _12306():
             'key_check_isChange': self.info['key_check_isChange'],
             'leftTicketStr': self.info['leftTicketStr'],
             'train_location': self.info['train_location'],
-            'seatDetailType': '1A',
+            'seatDetailType': '000',
             'roomType': '00',
             'dwAll': 'N',
-            'REPEAT_SUBMIT_TOKEN': self.token,
-            'randCode': code
+            'choose_seats': '',
+            #'REPEAT_SUBMIT_TOKEN': self.token,
+            'randCode': ''
         }
         print data
         res = self.opener.open(self.confirmurl, urllib.urlencode(data));
         print res.read()
         print '订单提交成功'
-        exit()
 
     def hide(self):
         self.w.withdraw()
@@ -225,6 +242,7 @@ class _12306():
             print '验证码错误'
             self.refreshCode(self.url, self.submit)
             return
+        self.w.destroy()
         print '验证码校验成功'
         print '正在登陆...'
         data = {}
@@ -243,6 +261,9 @@ class _12306():
             return
         self.opener.open('https://kyfw.12306.cn/otn/login/init')
         print '登陆成功'
+        res = self.opener.open(self.host + 'confirmPassenger/getPassengerDTOs').read()
+        self.psg = json.loads(res)['data']['normal_passengers']
+        self.getpassengerstr()
         self.query()
 
 try:
