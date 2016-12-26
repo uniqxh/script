@@ -103,7 +103,7 @@ class _12306():
         print '正在提交订单...'
         print ss
         action = 'leftTicket/submitOrderRequest'
-        cm = 'secretStr=' + ss + '&train_date='+ cfg.date +'&tour_flag=dc&purpose=ADULT&query_from_station_name=%E6%B7%B1%E5%9C%B3&query_to_station_name=%E9%A9%BB%E9%A9%AC%E5%BA%97%E8%A5%BF&undefined'
+        cm = 'secretStr=' + ss + '&train_date='+ cfg.date +'&tour_flag=dc&purpose=ADULT&query_from_station_name=%E6%B7%B1%E5%9C%B3&query_to_station_name=%E6%AD%A6%E6%B1%89&undefined'
         jd = json.loads(self.opener.open(self.host + action, cm).read())
         if jd['messages'] != []:
             print jd['messages'][0]
