@@ -7,40 +7,19 @@ import json
 import re
 import os
 
-#设置cookie
-cookies = urllib2.HTTPCookieProcessor()
-opener = urllib2.build_opener(cookies)
-data = {}
-data['ref'] = 'toolbar'
-data['username'] = 'xinhua11'
-data['password'] = '525799145'
-data['_eventId'] = 'submit'
-f = opener.open("https://passport.csdn.net/account/login")
-ss =  f.read()
-#获取csdn登陆流水号
-data['lt'] = re.compile(r'LT-[^\"]*').search(ss).group()
-data['execution'] = re.compile(r'e[0-9]s[0-9]').search(ss).group()
-f = opener.open("https://passport.csdn.net/account/login", urllib.urlencode(data))
+list_url = "http://download.csdn.net/index.php/meeting/speechlist/?sid=85%20or%20sid=86"
+down_url = "http://meet.download.csdn.net/speech"
 
-def download(url, i):
-    print "%d downloading %s"%(i, url)
-    filepath = "./sdcc/sdcc_%d.pdf"%i
+def download(url, i, filename):
+    print "%s downloading %s"%(i, filename)
+    filepath = "./2017-sdcc/%s"%filename
     if os.path.exists(filepath) == False:
-        urllib.urlretrieve(url, filepath)
+        urllib.urlretrieve(down_url + url, filepath)
 
-url = "http://download.csdn.net/index.php/meeting/do_download_speech/"
-cnt = 0
-for i in range(27, 238):
-    filepath = url + str(i)
-    req = urllib2.Request(filepath)
-    res = opener.open(req).read()
-    if res.strip() == '' :
-        continue
-    data = json.loads(res)
-    if data['msg'].find('meet.download.csdn.net') == -1:
-        continue
-    download(data['msg'], i)
-    cnt = cnt + 1
+res = urllib2.urlopen(list_url).read()
+data = json.loads(res)
+for i in data:
+    download(i['fileaddr'], i['id'], i['originfile'])
 
-print "总共下载 %d 个文件"%cnt
+print "总共下载 %d 个文件"%len(data)
 
